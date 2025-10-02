@@ -1,0 +1,16 @@
+{
+    "name": "aris/sistema-atencion-cliente",
+    "description": "Sistema de Atención al Cliente ARIS",
+    "type": "project",
+    "require": {
+        "php": "^7.4|^8.0",
+        "ext-mysqli": "*"
+    },
+    "require-dev": {},
+    "scripts": {
+        "post-install-cmd": []
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
