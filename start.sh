@@ -1,22 +1,49 @@
 #!/bin/bash
 
-# Iniciar Apache en segundo plano
-apache2-foreground &
-APACHE_PID=$!
+# Función para manejar la terminación
+cleanup() {
+    echo "Deteniendo servicios..."
+    kill $NGINX_PID 2>/dev/null
+    kill $PHPFPM_PID 2>/dev/null
+    exit 0
+}
 
-# Esperar un poco para que Apache se inicie
-sleep 5
+# Configurar trap para cleanup
+trap cleanup SIGTERM SIGINT
 
-# Verificar que Apache esté funcionando
-if ps -p $APACHE_PID > /dev/null; then
-    echo "Apache iniciado correctamente con PID: $APACHE_PID"
-    
-    # Hacer una prueba de healthcheck
-    curl -f http://localhost/health.php || echo "Healthcheck falló"
-    
-    # Mantener Apache corriendo
-    wait $APACHE_PID
-else
-    echo "Error: Apache no se pudo iniciar"
+# Iniciar PHP-FPM
+echo "Iniciando PHP-FPM..."
+php-fpm --nodaemonize &
+PHPFPM_PID=$!
+
+# Esperar a que PHP-FPM se inicie
+sleep 3
+
+# Verificar que PHP-FPM esté funcionando
+if ! kill -0 $PHPFPM_PID 2>/dev/null; then
+    echo "Error: PHP-FPM no se pudo iniciar"
     exit 1
 fi
+
+echo "PHP-FPM iniciado con PID: $PHPFPM_PID"
+
+# Iniciar Nginx
+echo "Iniciando Nginx..."
+nginx -g "daemon off;" &
+NGINX_PID=$!
+
+# Esperar a que Nginx se inicie
+sleep 2
+
+# Verificar que Nginx esté funcionando
+if ! kill -0 $NGINX_PID 2>/dev/null; then
+    echo "Error: Nginx no se pudo iniciar"
+    kill $PHPFPM_PID 2>/dev/null
+    exit 1
+fi
+
+echo "Nginx iniciado con PID: $NGINX_PID"
+echo "Servicios iniciados correctamente"
+
+# Mantener el script corriendo
+wait $NGINX_PID

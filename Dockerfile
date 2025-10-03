@@ -25,9 +25,9 @@ RUN echo '<?php http_response_code(200); echo "OK"; ?>' > /var/www/html/health.p
 # Crear archivo de prueba
 RUN echo '<?php echo "PHP funciona!"; ?>' > /var/www/html/test.php
 
-# Configurar Nginx
+# Configurar Nginx para usar $PORT de Railway
 RUN echo 'server {\n\
-    listen 80;\n\
+    listen ${PORT:-80};\n\
     server_name localhost;\n\
     root /var/www/html;\n\
     index index.php index.html;\n\
@@ -44,13 +44,20 @@ RUN echo 'server {\n\
     }\n\
 }' > /etc/nginx/sites-available/default
 
-# Crear script de inicio
-RUN echo '#!/bin/bash\n\
-# Iniciar PHP-FPM\n\
-php-fpm -D\n\
-# Iniciar Nginx\n\
-nginx -g "daemon off;"' > /start.sh
+# Configurar PHP-FPM para escuchar en 127.0.0.1:9000
+RUN echo '[global]\n\
+daemonize = no\n\
+\n\
+[www]\n\
+listen = 127.0.0.1:9000\n\
+pm = dynamic\n\
+pm.max_children = 5\n\
+pm.start_servers = 2\n\
+pm.min_spare_servers = 1\n\
+pm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/zz-docker.conf
 
+# Copiar script de inicio mejorado
+COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 # Exponer puerto 80
