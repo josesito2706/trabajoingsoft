@@ -54,7 +54,7 @@ pm = dynamic\n\
 pm.max_children = 5\n\
 pm.start_servers = 2\n\
 pm.min_spare_servers = 1\n\
-pm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/zz-docker.conf
+pm.max_spare_servers = 3' > /usr/local/etc/php-fpm.conf
 
 # Copiar script de inicio mejorado
 COPY start.sh /start.sh
