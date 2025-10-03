@@ -1,4 +1,4 @@
-FROM php:8.1-apache
+FROM php:8.1-cli
 
 # Instalar extensiones PHP necesarias
 RUN docker-php-ext-install mysqli pdo pdo_mysql
@@ -6,8 +6,8 @@ RUN docker-php-ext-install mysqli pdo pdo_mysql
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Habilitar mod_rewrite
-RUN a2enmod rewrite
+# Instalar servidor web simple
+RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
 
 # Copiar archivos de la aplicación
 COPY . /var/www/html/
@@ -25,21 +25,36 @@ RUN echo '<?php http_response_code(200); echo "OK"; ?>' > /var/www/html/health.p
 # Crear archivo de prueba
 RUN echo '<?php echo "PHP funciona!"; ?>' > /var/www/html/test.php
 
-# Configurar Apache para escuchar en el puerto correcto
-RUN echo 'Listen 80' > /etc/apache2/ports.conf
-RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
+# Configurar Nginx
+RUN echo 'server {\n\
+    listen 80;\n\
+    server_name localhost;\n\
+    root /var/www/html;\n\
+    index index.php index.html;\n\
+    \n\
+    location / {\n\
+        try_files $uri $uri/ /index.php?$query_string;\n\
+    }\n\
+    \n\
+    location ~ \.php$ {\n\
+        fastcgi_pass 127.0.0.1:9000;\n\
+        fastcgi_index index.php;\n\
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n\
+        include fastcgi_params;\n\
+    }\n\
+}' > /etc/nginx/sites-available/default
 
-# Configurar VirtualHost
-RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html\n\
-    <Directory /var/www/html>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+# Crear script de inicio
+RUN echo '#!/bin/bash\n\
+# Iniciar PHP-FPM\n\
+php-fpm -D\n\
+# Iniciar Nginx\n\
+nginx -g "daemon off;"' > /start.sh
+
+RUN chmod +x /start.sh
 
 # Exponer puerto 80
 EXPOSE 80
 
-# Comando de inicio simple
-CMD ["apache2-foreground"]
+# Comando de inicio
+CMD ["/start.sh"]
